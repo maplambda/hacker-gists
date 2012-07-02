@@ -1,8 +1,0 @@
-{% for gist in params %}
-    <a href="{{gist.url}}"><strong>{{ gist.description }}</strong></a>
-    <pre>{{ gist.content }}</pre>
-{% endfor %}
-
-{% if params|length > 30 %}
-<a href="/latest/{{start+30}}">[more]</a>
-{% endif %}
