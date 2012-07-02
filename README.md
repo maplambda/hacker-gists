@@ -1,3 +1,6 @@
+hacker-gists
+======
+
 Display gists from hacker news comments
 
 Initial commit of a single serve web app for displaying gists posted in hacker news comments.
