@@ -1,0 +1,38 @@
+import urllib2
+import json
+import StringIO
+
+endpoint = 'https://api.github.com/gists/'
+
+class Gist(dict):
+    def __init__(self, data):
+        self.d = data
+
+    def keys(self):
+        return self.d.keys()
+
+    def __getattr__(self, name):
+        if self.d.has_key(name):
+            
+            item = self.d[name]
+            if hasattr(item, 'keys'):
+                g = Gist(self.d[name])
+                for k,v in  self.d[name].iteritems():
+                    g[k]=Gist(v)
+
+                return g
+            else:
+                return self.d[name]
+        else: raise AttributeError, name
+
+def get(id):
+    try:
+        return Gist(json.load(urllib2.urlopen(endpoint+ id)))
+    #404 
+    except urllib2.HTTPError:
+        print "HTTP error on " + id
+        return None
+    #gists may contain png see: 2206278
+    except UnicodeDecodeError:
+        print "UnicodeDecodeError on " + id
+        return None
