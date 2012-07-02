@@ -5,7 +5,7 @@
 <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
 </head>
 <div class=page>
-<h1>Hacker News | Recent Gists</h1>
+<h1>Hacker Gists | Recent Gists</h1>
 {% for gist in params %}
 <ul>
 <li><a href="{{gist.url}}"><strong>{{ gist.description }}</strong></a></li>
