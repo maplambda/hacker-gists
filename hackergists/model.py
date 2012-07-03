@@ -1,7 +1,10 @@
-import redis as redis
 import json
+import os
 
-redis = redis.StrictRedis()
+import redis
+
+redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
+redis = redis.from_url(redis_url)
 
 def flush():
     redis.flushdb()
@@ -31,7 +34,6 @@ def index_clear_range(start=None, end=None):
     zrange = redis.zrange('index', start, end) 
     redis.zremrangebyrank('index', start, end)
     return zrange
-
 def index_rev_range(start=None, end=None):
     return redis.zrevrange('index', start, end)
 
