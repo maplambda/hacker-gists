@@ -24,8 +24,8 @@ def exists(id):
 def latest_gist():
     return redis.zrevrange('index', 0, 0)
 
-def index_add(id=None, score=None):
-    redis.zadd('index', score, id)
+def index_add(score=None, id=None,):
+    redis.zadd('index', id, score)
 
 def index_clear():
     redis.zremrangebyrank('index', 0, -1)
