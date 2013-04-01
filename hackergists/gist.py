@@ -27,12 +27,12 @@ class Gist(dict):
 
 def get(id):
     try:
-        return Gist(json.load(urllib2.urlopen(endpoint+ id)))
+        return Gist(json.load(urllib2.urlopen(endpoint+ id))), None
     #404 
-    except urllib2.HTTPError:
-        print "HTTP error on " + id
-        return None
+    except urllib2.HTTPError as e:
+        print "HTTP error on: %s (%s)" % (id, e)
+        return None, "HTTP error on: %s (%s)" % (id, e)
     #gists may contain png see: 2206278
     except UnicodeDecodeError:
         print "UnicodeDecodeError on " + id
-        return None
+        return None, "UnicodeDecodeError on " + id

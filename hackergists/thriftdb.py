@@ -2,8 +2,8 @@ import requests
 import urllib
 import json
 
-
 def get(url, params):
+    print url, params
     return json.loads(requests.get(url, params=params).text)
 
 def iter_flatten(data):
@@ -16,11 +16,7 @@ def iter_flatten(data):
 
 
 class ThriftDb(object):
-    def __init__(self, 
-        base,
-        bucket, 
-        collection):
-
+    def __init__(self, base, bucket, collection):
         self.base = base
         self.bucket = bucket
         self.collection = collection
@@ -35,7 +31,6 @@ class ThriftDb(object):
         params = urllib.urlencode(kwargs) + '&' + '&'.join(filter_query) 
 
         return get(url, params)
-
 
 if __name__ == '__main__':
     t = ThriftDb('http://api.thriftdb.com', 'api.hnsearch.com', 'items')
