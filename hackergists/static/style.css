@@ -23,6 +23,9 @@ pre             {font-family: "Menlo", monospace;}
 .hn             {color: #F60;}
 .hn:hover       {color: #F60;}
 
+.recent         {text-decoration:none;
+                 color:black;}
+
 h1, h2          { font-family: sans-serif; margin: 0; }
 
 h2              { font-size: 1.2em; }
