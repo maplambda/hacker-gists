@@ -79,4 +79,3 @@ def info():
 
 def updated():
     print friendly_age.friendly_age(int(metrics.get_label('hackergists.lastupdate')))
-
