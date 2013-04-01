@@ -1,4 +1,5 @@
 import json
+import time
 import os
 
 import redis
@@ -34,6 +35,7 @@ def index_clear_range(start=None, end=None):
     zrange = redis.zrange('index', start, end) 
     redis.zremrangebyrank('index', start, end)
     return zrange
+
 def index_rev_range(start=None, end=None):
     return redis.zrevrange('index', start, end)
 
@@ -43,8 +45,12 @@ def index_range(start=None, end=None):
 def recent_gists(start=None):
     start = 0 if start == None else start
     end = start + 30 if start is not None else -1
-    return map(lambda x: get(x), 
-               redis.zrevrange('index', start, end))
+    
+    pipe = redis.pipeline()
+    for id in redis.zrevrange('index', start, end):
+        pipe.get(id)
+
+    return map(lambda x: json.loads(x), pipe.execute())
 
 def info():
     return redis.info()
