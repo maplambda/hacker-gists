@@ -1,26 +1,45 @@
-<html>
+<!DOCTYPE html>
+
+<html lang="en">
 <head>
 <title>Latest Gists - Hacker Gists</title>
-<link rel=stylesheet type=text/css href="{{ url_for('static', filename='normalize.css') }}">
-<link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <style type="text/css">
+        a, a:hover         {color:black;}
+        a:not(:hover)   {text-decoration: none;}
+        .hn, .hn:hover  {color: #F60;}
+        .discussion     {color: #E6E7DF;}
+    </style>
 </head>
 
+<div class="container">
+    <div class="page-header">
+        <h1><a href="/latest">Recently discussed Gists</a> on <a class="hn" href="http://news.ycombinator.com">Hacker News</a></h1>
+    </div>
 
-<div class=page>
-<header style="margin-bottom: 2em;">
-<h1><a class="recent" href="/latest">Recently discussed Gists</a> on <a class="hn" href="http://news.ycombinator.com">Hacker News</a></h1>
-</header>
+    {% for gist in params %}
+    <div class="row" style="margin-bottom: 1.5em;">
+    <div class="span12">
+        <p class="lead">
+        <!--<i class="icon-fire" title="hot"></i>--><a href="{{gist.url}}">{{ gist.description }}</a> 
+        <a class="discussion" href="http://news.ycombinator.com/item?id={{gist.discussion_id}}" title="Discussion on Hacker News"><i class="icon-comment"></i>Discussion</a>
+        </p>
+        <pre>{{ gist.content }}</pre>
+    </div>
+    </div>
+    {% endfor %}
 
 
-{% for gist in params %}
-<div style="margin-bottom: 1.5em;">
-<a href="{{gist.url}}">{{ gist.description }}</a> <a href="http://news.ycombinator.com/item?id={{gist.discussion_id}}" title="Discussion on Hacker News">discussion</a> 
-<a class="gisttext" href="{{gist.url}}" title="{{ gist.description }}"><pre>{{ gist.content }}</pre></a>
+    {% if params|length > 30 %}
+    <ul class="pager">
+    <li class="next"><a href="/latest/{{start+30}}">More</a></li>
+    </ul>
+    {% endif %}
+
+    <div class="footer">
+        <!--<p>&copy; Company 2013</p>-->
+    </div>
 </div>
-{% endfor %}
 
-{% if params|length > 30 %}
-<a href="/latest/{{start+30}}">[more]</a>
-{% endif %}
-</div>
 </html>
