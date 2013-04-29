@@ -1,2 +1,2 @@
-web: gunicorn -w 4 --pythonpath ./hackergists/ hackergists:app
+web: gunicorn -w 4 -b "0.0.0.0:$PORT" --pythonpath ./hackergists/ hackergists:app
 
