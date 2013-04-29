@@ -8,74 +8,96 @@ from hackergists import metrics
 from hackergists import gist as gist_api
 from hackergists import friendly_age
 
-criteria = dict(limit = 100, sortby = 'create_ts desc',q = 'gist.github.com',
-                filter = {'[fields][type]' : 'comment'})
-
 thrift = thriftdb.ThriftDb('http://api.thriftdb.com', 'api.hnsearch.com', 'items')
 
-# returns gist id, hn discussion id
-def fetch_gist_ids():
-    ids = []
+"""
+Search Hacker News for recent Gists
+"""
+def _fetch_gist_ids():
+    criteria = dict(limit = 100, 
+                    sortby = 'create_ts desc',
+                    q = 'gist.github.com',
+                    filter = {'[fields][type]' : 'comment'})
+
     comments = thrift.search(**criteria)
+
     nondead = [item for item in comments['results'] if item['item']['discussion'] is not None]
 
     for comment in nondead:
         discussion_id = comment['item']['id']
         urls = re.findall(r'href="(https://gist.github.com/\S+)"', comment['item']['text'])
+
         for url in urls:
-            gist = {}
             path = urlparse.urlsplit(url.rstrip('/)')).path
             document = path.split('/').pop()
-            ids.append([document, discussion_id])
-    return ids
+            yield (document, discussion_id)
 
+"""
+Add a new entry to submission queue
+"""
+def submit(document, discussion_id):
+    meta, error = gist_api.get(document)
+    if meta is None:
+        print error
+        return False, error
+
+    gist= dict(gist_id = document,
+               discussion_id = discussion_id,
+               description = unicode(meta.description) if unicode(meta.description) else 'Gist: ' + document,
+               url = meta.html_url,
+               content = unicode('\n'.join(meta.files[meta.files.keys()[0]].content.split('\n')[0:5])))
+
+    model.redis.hmset("gist:#"+str(document), dict(payload=json.dumps(gist), status='OK'))
+    model.index_add(document, discussion_id)
+
+    return True, None
+
+"""
+Cron jobs
+"""
 def load_gists():
-    metrics.set_label('hackergists.lastupdate', int(friendly_age.get_universal_time()))
-    recent_gists = fetch_gist_ids()
-    
-    pipe = model.redis.pipeline()
+    model.redis.set('global.lastupdate', int(friendly_age.get_universal_time()))
+
+    recent_gists = _fetch_gist_ids()
     for document, discussion_id in recent_gists:
-        pipe.exists(document)
+        gist_key = "gist:#"+str(document)
 
-    key_exists = pipe.execute()
-    to_update = map(lambda x: x[0], filter(lambda x: x[1] == False, 
-                    zip(recent_gists, key_exists))) 
+        last_status = model.redis.hmget(gist_key, 'status')[0]
+        retry_count = model.redis.hmget(gist_key, 'retry_count')[0]
 
-    for document, discussion_id in to_update:
-        meta, error = gist_api.get(document)
-        if meta is None:
-            metrics.set_label(document, error)
+        if (last_status != 'OK') and (retry_count is None or int(retry_count) < 10):
+            print "checking #", retry_count
+            result, error = submit(document, discussion_id)
+            if(not result):
+                model.redis.hmset(gist_key, dict(status='ERR',message=error))
+                model.redis.hincrby(gist_key, 'retry_count')                
         else:
-            gist = {}
-            gist['gist_id'] = document
-            gist['discussion_id'] = discussion_id
-            gist['description'] = unicode(meta.description) if unicode(meta.description) else 'Gist: ' + document
-            gist['url'] = meta.html_url
-            gist['content'] = unicode('\n'.join(meta.files[meta.files.keys()[0]].content.split('\n')[0:5]))
+            if last_status == 'OK':
+                print "skipping OK"
+            else:
+                model.redis.hmset(gist_key, dict(status='DEAD'))
+                print "skipping DEAD", retry_count, model.redis.hmget(gist_key, 'message')[0]
 
-            model.store(gist, document)
-            model.index_add(score=discussion_id, id=document)
-            
-            metrics.clear_label(document)
-
+"""
+Db
+"""
 def kill_old():
     for key in model.index_clear_range(0, -501):
-        model.delete(key)
+        model.redis.delete(key)
 
 def flush_db():
-    model.flush()
+    model.redis.flushdb()
+
     model.index_clear()
 
+"""
+Stats
+"""
 def info():
     stat = {}
-    stat['updated_time'] = metrics.get_label('hackergists.lastupdate')
-    stat['errors'] = metrics.get_labels()
-    stat['redis_info'] = model.info()
+    stat['updated_time'] = model.redis.get('global.lastupdate')
+    stat['redis_info'] = model.redis.info()
 
     print json.dumps(stat)
-    print "errors ", len(stat['errors'])
     print "keys ", stat['redis_info']['db0']['keys']
-    print "last update", stat['updated_time']
-
-def updated():
-    print friendly_age.friendly_age(int(metrics.get_label('hackergists.lastupdate')))
+    print "last update", friendly_age.friendly_age(int(model.redis.get('global.lastupdate')))

@@ -30,9 +30,7 @@ def get(id):
         return Gist(json.load(urllib2.urlopen(endpoint+ id))), None
     #404 
     except urllib2.HTTPError as e:
-        print "HTTP error on: %s (%s)" % (id, e)
         return None, "HTTP error on: %s (%s)" % (id, e)
     #gists may contain png see: 2206278
     except UnicodeDecodeError:
-        print "UnicodeDecodeError on " + id
         return None, "UnicodeDecodeError on " + id
