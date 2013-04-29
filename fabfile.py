@@ -4,7 +4,6 @@ import json
 
 from hackergists import thriftdb
 from hackergists import model
-from hackergists import metrics
 from hackergists import gist as gist_api
 from hackergists import friendly_age
 
