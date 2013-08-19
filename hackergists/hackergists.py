@@ -9,7 +9,7 @@ app = Flask(__name__)
 @app.context_processor
 def mixpanel_token():
     return dict(mixpanel_token=os.getenv('MIXPANEL_TOKEN'),
-                prod_mixpanel_token='674338aad6c56609fcffc10c2dbf6d5')
+                prod_mixpanel_token='674338aad6c56609fcffc10c2dbf6d50')
 
 @app.route('/')
 def index():
