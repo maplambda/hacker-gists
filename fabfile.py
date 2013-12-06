@@ -5,77 +5,78 @@ import json
 from hackergists import thriftdb
 from hackergists import model
 from hackergists import gist as gist_api
-from hackergists import friendly_age
-
-thrift = thriftdb.ThriftDb('http://api.thriftdb.com', 'api.hnsearch.com', 'items')
 
 """
-Search Hacker News for recent Gists
+Helpers
 """
-def _fetch_gist_ids():
-    criteria = dict(limit = 100, 
-                    sortby = 'create_ts desc',
-                    q = 'gist.github.com',
-                    filter = {'[fields][type]' : 'comment'})
-
-    comments = thrift.search(**criteria)
-
-    nondead = [item for item in comments['results'] if item['item']['discussion'] is not None]
-
-    for comment in nondead:
-        discussion_id = comment['item']['id']
-        urls = re.findall(r'href="(https://gist.github.com/\S+)"', comment['item']['text'])
-
-        for url in urls:
-            path = urlparse.urlsplit(url.rstrip('/)')).path
-            document = path.split('/').pop()
-            yield (document, discussion_id)
+def counter():
+    d = {}
+    def make_counter(item=None):
+        if item is not None:
+            if d.has_key(item):
+                d[item] += 1
+            else:
+                d[item] = 1
+        return d
+    return make_counter
 
 """
-Add a new entry to submission queue
+Application
 """
-def submit(document, discussion_id):
-    meta, error = gist_api.get(document)
-    if meta is None:
-        print error
-        return False, error
+def iter_hn_gists():
+    """Search Hacker News for recent Gists. Yield  gist_id, hn_id"""
+    thrift = thriftdb.ThriftDb('http://api.thriftdb.com', 'api.hnsearch.com', 'items')
+    criteria = {'limit' : 100,
+                     'sortby' : 'create_ts desc',
+                          'q' : 'gist.github.com'}
 
-    gist= dict(gist_id = document,
-               discussion_id = discussion_id,
-               description = unicode(meta.description) if unicode(meta.description) else 'Gist: ' + document,
-               url = meta.html_url,
-               content = unicode('\n'.join(meta.files[meta.files.keys()[0]].content.split('\n')[0:5])))
+    items = thrift.search(**criteria)
 
-    model.redis.hmset("gist:#"+str(document), dict(payload=json.dumps(gist), status='OK'))
-    model.index_add(document, discussion_id)
+    for item in items['results']:
+        hn_id = item['item']['id']
 
-    return True, None
+        if 'submission' == item['item']['type'] and item['item']['url'] is not None:
+            gist_id = item['item']['url'].split('/')[-1]
+            yield gist_id, hn_id
+
+        if  'comment' == item['item']['type']:
+            urls = re.findall(r'href="(https://gist.github.com/\S+)"', item['item']['text'])
+            for url in urls:
+                path = urlparse.urlsplit(url.rstrip('/)')).path
+                gist_id = path.split('/')[-1]
+                yield gist_id, hn_id
 
 """
 Cron jobs
 """
 def load_gists():
-    model.redis.set('global.lastupdate', int(friendly_age.get_universal_time()))
+    stats = counter()
 
-    recent_gists = _fetch_gist_ids()
-    for document, discussion_id in recent_gists:
-        gist_key = "gist:#"+str(document)
+    hn_gists = iter_hn_gists()
+    for gist_id, hn_id in hn_gists:
+        print "Checking gist_id: {0} hn_id: {1}".format(gist_id, hn_id)
 
-        last_status = model.redis.hmget(gist_key, 'status')[0]
-        retry_count = model.redis.hmget(gist_key, 'retry_count')[0]
+        if not model.exists(gist_id):
+            document, error = gist_api.get(gist_id)
+            if document is not None:
+                gist = {'gist_id' : gist_id,
+                       'hn_id' : hn_id,
+                       'description' : unicode(document.description) if unicode(document.description) else 'Gist: ' + gist_id,
+                       'url' : document.html_url,
+                       'content' : unicode('\n'.join(document.files[document.files.keys()[0]].content.split('\n')[0:5]))}
 
-        if (last_status != 'OK') and (retry_count is None or int(retry_count) < 10):
-            print "checking #", retry_count
-            result, error = submit(document, discussion_id)
-            if(not result):
-                model.redis.hmset(gist_key, dict(status='ERR',message=error))
-                model.redis.hincrby(gist_key, 'retry_count')                
-        else:
-            if last_status == 'OK':
-                print "skipping OK"
+                stats("OK")
+                print(model.add(gist))
             else:
-                model.redis.hmset(gist_key, dict(status='DEAD'))
-                print "skipping DEAD", retry_count, model.redis.hmget(gist_key, 'message')[0]
+                #mark retry
+                retry = model.retry(gist_id, error)
+                stats(retry)
+                print(error, "hn id ", hn_id)
+        else:
+            stats("SKIPPED")
+            print("SKIPPED")
+
+    print(stats())
 
 """
 Db
@@ -86,7 +87,6 @@ def kill_old():
 
 def flush_db():
     model.redis.flushdb()
-
     model.index_clear()
 
 """
@@ -94,9 +94,12 @@ Stats
 """
 def info():
     stat = {}
-    stat['updated_time'] = model.redis.get('global.lastupdate')
-    stat['redis_info'] = model.redis.info()
+    #stat['redis_info'] = model.redis.info()
+    stat['keys_count'] = model.redis.info()['db0']['keys']
+    stat['last_update'] = model.redis.get('global.lastupdate')
+    #stat['last_update_human'] = friendly_age.friendly_age(int(model.redis.get('global.lastupdate')))
+
+    #model.redis.hmset(model.queue_stat_key, dict(status='ERR', message=error))    
 
     print json.dumps(stat)
-    print "keys ", stat['redis_info']['db0']['keys']
-    print "last update", friendly_age.friendly_age(int(model.redis.get('global.lastupdate')))
+
