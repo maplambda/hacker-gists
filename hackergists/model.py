@@ -64,5 +64,4 @@ def add(gist):
     gist_key = "gist:#"+str(gist['gist_id'])
     redis.hmset(gist_key, dict(payload=json.dumps(gist), status='OK'))
     index_add(gist['gist_id'], gist['hn_id'])
-    redis.set('global.lastupdate', int(friendly_age.get_universal_time())) 
     return 'OK'

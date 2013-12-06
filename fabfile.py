@@ -4,6 +4,7 @@ import json
 
 from hackergists import thriftdb
 from hackergists import model
+from hackergists import friendly_age
 from hackergists import gist as gist_api
 
 """
@@ -93,13 +94,11 @@ def flush_db():
 Stats
 """
 def info():
-    stat = {}
-    #stat['redis_info'] = model.redis.info()
-    stat['keys_count'] = model.redis.info()['db0']['keys']
-    stat['last_update'] = model.redis.get('global.lastupdate')
-    #stat['last_update_human'] = friendly_age.friendly_age(int(model.redis.get('global.lastupdate')))
+    stat = {'keys' : model.redis.info()['db0']['keys'],
+            'used_memory' :  model.redis.info()['used_memory_human'],
+            'last_save_time' :  model.redis.info()['last_save_time'],
+            'last_save_time' :  friendly_age.friendly_age(int(model.redis.info()['last_save_time']))}
 
-    #model.redis.hmset(model.queue_stat_key, dict(status='ERR', message=error))    
-
-    print json.dumps(stat)
+    print(model.redis.info())
+    print stat
 
