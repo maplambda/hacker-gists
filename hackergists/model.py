@@ -57,7 +57,7 @@ def retry(gist_id, error=None):
         redis.hincrby(gist_key, 'retry_count')
         return 'ERR'
     else:
-        model.redis.hmset(gist_key, dict(status='DEAD'))
+        redis.hmset(gist_key, dict(status='DEAD'))
         return 'DEAD'
 
 def add(gist):
