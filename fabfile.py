@@ -77,6 +77,7 @@ def load_gists():
             stats("SKIPPED")
             print("SKIPPED")
 
+    model.redis.hmset('stat.last', stats())
     print(stats())
 
 """
@@ -100,5 +101,6 @@ def info():
             'last_save_time' :  friendly_age.friendly_age(int(model.redis.info()['last_save_time']))}
 
     print(model.redis.info())
+    print(model.redis.hgetall('stat.last'))
     print stat
 
